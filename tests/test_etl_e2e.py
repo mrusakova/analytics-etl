@@ -69,3 +69,38 @@ def test_report_runs(tmp_path, capsys):
     report.main(url, today=TODAY)
     out = capsys.readouterr().out
     assert "after_trial" in out and "9600" in out and "2026-10-20" in out   # отказ, долг, непроведённое
+
+
+def test_datalens_views(tmp_path):
+    """Все v_dl_* создаются (дважды — как при ежедневном прогоне) и отдают русские подписи."""
+    from sqlalchemy import text
+    lessons = [dict(id=1, date="2026-10-19", classId=701506, status=1, records=[rec(1, True), rec(2, False)])]
+    joins = [dict(id=1, userId=1, classId=701506, statusId=2, createdAt="2026-09-01T00:00:00+00:00",
+                  stateChangedAt="2026-09-03T00:00:00+00:00"),
+             dict(id=2, userId=2, classId=701506, statusId=1, createdAt="2026-09-01T00:00:00+00:00",
+                  stateChangedAt="2026-10-20T00:00:00+00:00")]
+    inv = [dict(id=9, userId=2, price=9600, payed=0, payUntil="2026-10-10", userSubscriptionId=77)]
+    fact, students, risk, mj, debts, gs = transform(META, joins, lessons, inv, [dict(id=77, mainClassId=701506)], TODAY)
+    eng = db.get_engine(f"sqlite:///{tmp_path}/v.db")
+    db.md.create_all(eng)
+    with eng.begin() as c:
+        db.replace_all(c, db.dim_class, [dict(class_id=701506, class_name="11 кл ПН", status="opened",
+                                              direction="olymp", grade=11, course_name="К")])
+        db.replace_all(c, db.fact_lesson, fact)
+        db.replace_all(c, db.mart_join, mj)
+        db.replace_all(c, db.mart_student_program, students)
+        db.replace_all(c, db.mart_churn_risk, risk)
+        db.replace_snapshot(c, db.debt_snapshot, TODAY, debts)
+        db.replace_snapshot(c, db.group_snapshot, TODAY, gs)
+        c.execute(db.dim_students.insert(), [dict(user_id=2, name="Петров Пётр")])
+        db.create_views(c)
+        db.create_views(c)
+    with eng.connect() as c:
+        for name in db.VIEWS:
+            c.execute(text(f"SELECT * FROM {name}")).all()
+        s = c.execute(text("SELECT student_name, direction_name, grade_label, status_name, refusal_type_name "
+                           "FROM v_dl_students_named WHERE user_id = 2")).one()
+        assert tuple(s) == ("Петров Пётр", "Олимпиадная математика", "11 кл", "Отказ", "1. Не дошёл")   # 0 посещений
+        d = c.execute(text("SELECT class_name, debt, overdue_debt, is_latest FROM v_dl_debts")).one()
+        assert tuple(d) == ("11 кл ПН", 9600, 9600, 1)
+        assert c.execute(text("SELECT SUM(is_active) FROM v_dl_joins")).scalar() == 1

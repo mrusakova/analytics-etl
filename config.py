@@ -25,6 +25,9 @@ ANALYTICS_DATABASE_URL = _db_url()
 
 SEASON_MARKER = os.environ.get("SEASON_MARKER", "26/27")      # учебный год — по названию группы
 SEASON_START = os.environ.get("SEASON_START", "2026-08-01")   # с какой даты тянуть занятия
+# Начало занятий: отказы, случившиеся раньше (записались на год заранее и передумали),
+# относим к этому месяцу (refusal_month); настоящая дата остаётся в refusal_date.
+CLASSES_START = os.environ.get("CLASSES_START", "2026-09-01")
 TZ = os.environ.get("TZ_NAME", "Europe/Moscow")
 
 # Статусы записей в группу (справочник joinStatuses)

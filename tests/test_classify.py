@@ -66,3 +66,16 @@ def test_risk_young_vs_older():
     assert {r["user_id"] for r in risk_rows(st, ab, today)} == {1, 3}
     # пропуск старше 7 дней не считается
     assert risk_rows(st[:1], {(1, "olymp"): [date(2026, 10, 14)]}, today) == []
+
+
+def test_refusal_before_classes_start_goes_to_september():
+    """Записался на год заранее и отказался в мае -> no_show, месяц отказа = сентябрь;
+    настоящая дата сохраняется в refusal_date."""
+    meta = {1: dict(direction="olymp", grade=3)}
+    joins = [dict(id=1, userId=7, classId=1, statusId=1, createdAt="2026-04-10T00:00:00+00:00",
+                  stateChangedAt="2026-05-15T00:00:00+00:00")]
+    r = build_student_programs(joins, meta, {})[0]
+    assert (r["refusal_type"], r["refusal_date"], r["refusal_month"]) == \
+           ("no_show", date(2026, 5, 15), date(2026, 9, 1))
+    joins[0]["stateChangedAt"] = "2026-10-03T00:00:00+00:00"
+    assert build_student_programs(joins, meta, {})[0]["refusal_month"] == date(2026, 10, 1)

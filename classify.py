@@ -86,9 +86,16 @@ def build_student_programs(joins, class_meta, visit_dates):
             user_id=uid, direction=direction, grade=grade, status=status, visits=visits,
             first_visit=dates[0] if dates else None, last_visit=dates[-1] if dates else None,
             joined_at=_d(js[0]["createdAt"]), refusal_type=r_type, refusal_date=r_date,
-            refusal_month=r_date.replace(day=1) if r_date else None, reason_id=reason,
+            refusal_month=refusal_month(r_date), reason_id=reason,
             groups_count=len(js)))
     return rows
+
+
+def refusal_month(r_date: date | None) -> date | None:
+    """Месяц отказа для графиков; отказы до начала занятий — в месяц начала (сентябрь)."""
+    if not r_date:
+        return None
+    return max(r_date, date.fromisoformat(C.CLASSES_START)).replace(day=1)
 
 
 def absences_in_window(absence_dates, today: date, window=C.RISK_WINDOW_DAYS):

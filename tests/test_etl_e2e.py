@@ -43,3 +43,29 @@ def test_transform_and_load(tmp_path):
     with eng.connect() as c:
         assert len(c.execute(select(db.debt_snapshot)).all()) == 1
         assert len(c.execute(select(db.fact_lesson)).all()) == 4
+
+
+def test_report_runs(tmp_path, capsys):
+    """report.py выполняет все запросы на заполненной базе (SQLite) без ошибок."""
+    import report
+    lessons = [dict(id=1, date="2026-10-19", classId=701506, status=1, records=[rec(1, True), rec(2, False)]),
+               dict(id=2, date="2026-10-20", classId=701506, status=0, records=[rec(1, False)])]
+    joins = [dict(id=1, userId=1, classId=701506, statusId=2, createdAt="2026-09-01T00:00:00+00:00",
+                  stateChangedAt="2026-09-03T00:00:00+00:00"),
+             dict(id=2, userId=2, classId=701506, statusId=1, createdAt="2026-09-01T00:00:00+00:00",
+                  stateChangedAt="2026-10-20T00:00:00+00:00")]
+    inv = [dict(id=9, userId=2, price=9600, payed=0, payUntil="2026-10-10", userSubscriptionId=77)]
+    fact, students, risk, mj, debts, gs = transform(META, joins, lessons, inv, [dict(id=77, mainClassId=701506)], TODAY)
+    url = f"sqlite:///{tmp_path}/r.db"
+    eng = db.get_engine(url)
+    db.md.create_all(eng)
+    with eng.begin() as c:
+        db.replace_all(c, db.dim_class, [dict(class_id=701506, class_name=META[701506]["name"], status="opened",
+                                              direction="olymp", grade=11, course_name="Кружки 10-11 классов")])
+        db.replace_all(c, db.fact_lesson, fact)
+        db.replace_all(c, db.mart_join, mj)
+        db.replace_all(c, db.mart_student_program, students)
+        db.replace_snapshot(c, db.debt_snapshot, TODAY, debts)
+    report.main(url, today=TODAY)
+    out = capsys.readouterr().out
+    assert "after_trial" in out and "9600" in out and "2026-10-20" in out   # отказ, долг, непроведённое

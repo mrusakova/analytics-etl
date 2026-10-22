@@ -37,6 +37,13 @@ mart_churn_risk = Table("mart_churn_risk", md,
     Column("grade", Integer), Column("absences_7d", Integer), Column("visits", Integer),
     Column("last_visit", Date))
 
+mart_movement = Table("mart_movement", md,   # движение контингента по месяцам
+    Column("month", Date, primary_key=True), Column("direction", String, primary_key=True),
+    Column("grade", Integer, primary_key=True), Column("start_count", Integer), Column("came", Integer),
+    Column("no_show", Integer), Column("after_trial", Integer), Column("after_month", Integer),
+    Column("late", Integer), Column("completed", Integer), Column("left_count", Integer),
+    Column("end_count", Integer))
+
 debt_snapshot = Table("debt_snapshot", md,   # снимок долгов, копится по понедельникам
     Column("snapshot_date", Date, primary_key=True), Column("invoice_id", I, primary_key=True),
     Column("user_id", I), Column("class_id", I), Column("direction", String), Column("grade", Integer),
@@ -129,6 +136,10 @@ VIEWS.update({
         f"d.pay_until, d.overdue, "
         f"CASE WHEN d.snapshot_date = (SELECT MAX(snapshot_date) FROM debt_snapshot) THEN 1 ELSE 0 END "
         f"AS is_latest FROM debt_snapshot d LEFT JOIN dim_class c ON c.class_id = d.class_id",
+    "v_dl_movement":  # движение контингента: на начало + пришли - ушли = на конец
+        f"SELECT m.month, {_dir('m.direction')} AS direction_name, m.grade, "
+        f"{_grade('m.direction', 'm.grade')} AS grade_label, m.start_count, m.came, m.no_show, m.after_trial, "
+        f"m.after_month, m.late, m.completed, m.left_count, m.end_count FROM mart_movement m",
     "v_dl_last_run":  # «данные на …» для шапки дашборда
         "SELECT MAX(finished_at) AS updated_at FROM etl_run",
     # --- закрытые, с ФИО ---

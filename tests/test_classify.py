@@ -79,3 +79,22 @@ def test_refusal_before_classes_start_goes_to_september():
            ("no_show", date(2026, 5, 15), date(2026, 9, 1))
     joins[0]["stateChangedAt"] = "2026-10-03T00:00:00+00:00"
     assert build_student_programs(joins, meta, {})[0]["refusal_month"] == date(2026, 10, 1)
+
+
+def test_movement_by_month():
+    from classify import movement_rows
+    meta = {1: dict(direction="olymp", grade=3)}
+    J = lambda i, uid, st, created, changed: dict(id=i, userId=uid, classId=1, statusId=st,
+                                                 createdAt=created + "T00:00:00+00:00",
+                                                 stateChangedAt=changed + "T00:00:00+00:00")
+    joins = [J(1, 1, 2, "2026-05-10", "2026-05-10"),     # записан весной, учится
+             J(2, 2, 1, "2026-09-02", "2026-09-20"),     # пришёл в сентябре, 1 посещение, отказ
+             J(3, 3, 2, "2026-10-05", "2026-10-05"),     # пришёл в октябре
+             J(4, 4, 4, "2026-09-01", "2026-10-12")]     # завершил/перешёл в октябре
+    visits = {(2, "olymp"): [date(2026, 9, 10)], (4, "olymp"): [date(2026, 9, 8), date(2026, 10, 6)]}
+    students = build_student_programs(joins, meta, visits)
+    rows = {r["month"]: r for r in movement_rows(students, joins, meta, date(2026, 10, 22))}
+    sep, octo = rows[date(2026, 9, 1)], rows[date(2026, 10, 1)]
+    assert (sep["start_count"], sep["came"], sep["after_trial"], sep["end_count"]) == (0, 3, 1, 2)
+    assert (octo["start_count"], octo["came"], octo["completed"], octo["end_count"]) == (2, 1, 1, 2)
+    assert sep["end_count"] == octo["start_count"]

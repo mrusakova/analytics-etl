@@ -114,3 +114,56 @@ def risk_rows(students, absences_by_user_dir, today: date):
             out.append(dict(user_id=s["user_id"], direction=s["direction"], grade=s["grade"],
                             absences_7d=n, visits=s["visits"], last_visit=s["last_visit"]))
     return out
+
+
+REFUSAL_TYPES = ("no_show", "after_trial", "after_month", "late")
+
+
+def _add_month(m: date) -> date:
+    return date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+
+
+def movement_rows(students, joins, class_meta, today: date):
+    """Движение контингента по месяцам: ученик x направление -> строки (месяц, направление, класс).
+    На начало + пришли - ушли (по типам отказа + завершили/перешли) = на конец.
+    Даты раньше начала занятий (записались/отказались весной) относим к месяцу начала занятий."""
+    start = date.fromisoformat(C.CLASSES_START)
+    done_date = defaultdict(lambda: None)   # дата «Завершил / перешёл» по ученику x направлению
+    for j in joins:
+        m = class_meta.get(j["classId"])
+        if m and j["statusId"] == C.ST_DONE_OR_MOVED and j.get("stateChangedAt"):
+            key, d = (j["userId"], m["direction"]), _d(j["stateChangedAt"])
+            done_date[key] = max(filter(None, (done_date[key], d)))
+    people = []   # (direction, grade, дата прихода, дата ухода, тип ухода)
+    for s in students:
+        if not s["joined_at"]:
+            continue
+        out, kind = None, None
+        if s["status"] == "refused":
+            out, kind = s["refusal_date"], s["refusal_type"]
+        elif s["status"] == "completed":
+            out, kind = done_date[(s["user_id"], s["direction"])] or s["last_visit"], "completed"
+        came = max(s["joined_at"], start)
+        if out:
+            out = max(out, came)
+        people.append((s["direction"], s["grade"], came, out, kind))
+    rows = []
+    month, last = start.replace(day=1), today.replace(day=1)
+    while month <= last:
+        nxt = _add_month(month)
+        acc = defaultdict(lambda: dict.fromkeys(("start_count", "came", *REFUSAL_TYPES, "completed"), 0))
+        for direction, grade, came, out, kind in people:
+            a = acc[(direction, grade)]
+            if came < month and (out is None or out >= month):
+                a["start_count"] += 1
+            if month <= came < nxt:
+                a["came"] += 1
+            if out and month <= out < nxt:
+                a[kind] += 1
+        for (direction, grade), a in acc.items():
+            left = sum(a[k] for k in (*REFUSAL_TYPES, "completed"))
+            if a["start_count"] or a["came"] or left:
+                rows.append(dict(month=month, direction=direction, grade=grade, **a,
+                                 left_count=left, end_count=a["start_count"] + a["came"] - left))
+        month = nxt
+    return rows

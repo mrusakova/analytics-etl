@@ -23,6 +23,11 @@ SECTIONS = [
      "SUM(CASE WHEN refusal_type = 'late' THEN 1 ELSE 0 END) AS late, COUNT(*) AS total "
      "FROM mart_student_program WHERE status = 'refused' "
      "GROUP BY refusal_month, direction ORDER BY refusal_month, direction"),
+    ("Движение контингента по месяцам (на начало + пришли - ушли = на конец)",
+     "SELECT month, direction, SUM(start_count) AS start_cnt, SUM(came) AS came, SUM(no_show) AS no_show, "
+     "SUM(after_trial) AS after_trial, SUM(after_month) AS after_month, SUM(late) AS late, "
+     "SUM(completed) AS completed, SUM(end_count) AS end_cnt FROM mart_movement "
+     "GROUP BY month, direction ORDER BY month, direction"),
     ("Выручка (списания) и посещения по месяцам",
      "SELECT SUBSTR(CAST(lesson_date AS TEXT), 1, 7) AS month, direction, "
      "SUM(revenue) AS revenue, SUM(visits) AS visits, SUM(absences) AS absences, "

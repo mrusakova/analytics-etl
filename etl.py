@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import config as C
 import db
-from classify import build_student_programs, direction_of, risk_rows
+from classify import build_student_programs, direction_of, movement_rows, risk_rows
 from mk_client import MoyKlass
 
 STATUS_NAMES = {1: "Отказался", 2: "Учится", 4: "Завершил/зап. в др. группу", 5: "Отработка",
@@ -139,6 +139,7 @@ def main(force_snapshot=False):
         db.replace_all(conn, db.mart_join, mj)
         db.replace_all(conn, db.mart_student_program, students)
         db.replace_all(conn, db.mart_churn_risk, risk)
+        db.replace_all(conn, db.mart_movement, movement_rows(students, joins, meta, today))
         if today.weekday() == 0 or force_snapshot:   # понедельник
             db.replace_snapshot(conn, db.debt_snapshot, today, debts)
             db.replace_snapshot(conn, db.group_snapshot, today, gs)

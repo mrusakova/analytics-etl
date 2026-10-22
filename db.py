@@ -11,6 +11,9 @@ dim_class = Table("dim_class", md,
     Column("class_id", I, primary_key=True), Column("class_name", String), Column("status", String),
     Column("direction", String), Column("grade", Integer), Column("course_name", String))
 
+dim_group_order = Table("dim_group_order", md,   # порядок групп: класс -> день недели -> время
+    Column("class_id", I, primary_key=True), Column("group_order", Integer))
+
 fact_lesson = Table("fact_lesson", md,   # одна строка = проведённое/запланированное занятие группы
     Column("lesson_id", I, primary_key=True), Column("lesson_date", Date), Column("class_id", I),
     Column("class_name", String), Column("direction", String), Column("grade", Integer),
@@ -109,7 +112,7 @@ VIEWS.update({
     "v_dl_lessons":   # занятия: выручка, посещения, пропуски по дате
         f"SELECT l.lesson_date, l.class_id, l.class_name, {_dir('l.direction')} AS direction_name, "
         f"l.grade, {_grade('l.direction', 'l.grade')} AS grade_label, l.conducted, l.records, l.visits, "
-        f"l.absences, l.absences_good_reason, l.revenue FROM fact_lesson l",
+        f"l.absences, l.absences_good_reason, l.revenue, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = l.class_id) AS group_order FROM fact_lesson l",
     "v_dl_students":  # ученик x направление: статус, отказы
         f"SELECT s.user_id, {_dir('s.direction')} AS direction_name, s.grade, "
         f"{_grade('s.direction', 's.grade')} AS grade_label, "
@@ -123,19 +126,19 @@ VIEWS.update({
         f"SELECT j.join_id, j.user_id, j.class_id, j.class_name, {_dir('j.direction')} AS direction_name, "
         f"j.grade, {_grade('j.direction', 'j.grade')} AS grade_label, j.status_name, "
         f"CASE WHEN j.status_id IN ({_ACTIVE}) THEN 1 ELSE 0 END AS is_active, "
-        f"j.created_at, j.state_changed_at FROM mart_join j",
+        f"j.created_at, j.state_changed_at, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = j.class_id) AS group_order FROM mart_join j",
     "v_dl_groups_weekly":   # записи по группам на каждый понедельник (динамика)
         f"SELECT g.snapshot_date, g.class_id, c.class_name, {_dir('g.direction')} AS direction_name, "
         f"g.grade, {_grade('g.direction', 'g.grade')} AS grade_label, g.active_joins, g.total_joins, "
         f"CASE WHEN g.snapshot_date = (SELECT MAX(snapshot_date) FROM group_snapshot) THEN 1 ELSE 0 END "
-        f"AS is_latest FROM group_snapshot g LEFT JOIN dim_class c ON c.class_id = g.class_id",
+        f"AS is_latest, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = g.class_id) AS group_order FROM group_snapshot g LEFT JOIN dim_class c ON c.class_id = g.class_id",
     "v_dl_debts":     # долги по счетам на каждый понедельник
         f"SELECT d.snapshot_date, d.invoice_id, d.user_id, d.class_id, c.class_name, "
         f"{_dir('d.direction')} AS direction_name, d.grade, {_grade('d.direction', 'd.grade')} AS grade_label, "
         f"d.price, d.payed, d.debt, CASE WHEN d.overdue THEN d.debt ELSE 0 END AS overdue_debt, "
         f"d.pay_until, d.overdue, "
         f"CASE WHEN d.snapshot_date = (SELECT MAX(snapshot_date) FROM debt_snapshot) THEN 1 ELSE 0 END "
-        f"AS is_latest FROM debt_snapshot d LEFT JOIN dim_class c ON c.class_id = d.class_id",
+        f"AS is_latest, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = d.class_id) AS group_order FROM debt_snapshot d LEFT JOIN dim_class c ON c.class_id = d.class_id",
     "v_dl_movement":  # движение контингента: на начало + пришли - ушли = на конец
         f"SELECT m.month, {_dir('m.direction')} AS direction_name, m.grade, "
         f"{_grade('m.direction', 'm.grade')} AS grade_label, m.start_count, m.came, m.no_show, m.after_trial, "

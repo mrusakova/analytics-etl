@@ -46,7 +46,7 @@ SECTIONS = [
      "(SELECT COUNT(*) FROM fact_lesson l WHERE l.class_id = c.class_id AND l.conducted) AS lessons, "
      "(SELECT COUNT(*) FROM fact_lesson l WHERE l.class_id = c.class_id AND l.conducted "
      "  AND NOT l.marked) AS unmarked "
-     "FROM dim_class c ORDER BY c.direction, c.grade, c.class_name"),
+     "FROM dim_class c ORDER BY c.direction, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = c.class_id)"),
     # --- качество данных: всё, что ниже, в норме должно быть пустым или маленьким ---
     ("ПРОВЕРКА: группы без определённого класса (кроме дошкольников)",
      "SELECT class_name, direction FROM dim_class WHERE grade IS NULL"),

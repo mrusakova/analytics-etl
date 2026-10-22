@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import config as C
 import db
-from classify import build_student_programs, direction_of, movement_rows, risk_rows
+from classify import build_student_programs, direction_of, group_order, movement_rows, risk_rows
 from mk_client import MoyKlass
 
 STATUS_NAMES = {1: "Отказался", 2: "Учится", 4: "Завершил/зап. в др. группу", 5: "Отработка",
@@ -135,6 +135,8 @@ def main(force_snapshot=False):
     db.md.create_all(eng)
     with eng.begin() as conn:
         db.replace_all(conn, db.dim_class, dim)
+        db.replace_all(conn, db.dim_group_order, [dict(class_id=d["class_id"],
+                       group_order=group_order(d["class_name"], d["grade"])) for d in dim])
         db.replace_all(conn, db.fact_lesson, fact)
         db.replace_all(conn, db.mart_join, mj)
         db.replace_all(conn, db.mart_student_program, students)

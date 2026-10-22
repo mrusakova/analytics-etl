@@ -98,3 +98,16 @@ def test_movement_by_month():
     assert (sep["start_count"], sep["came"], sep["after_trial"], sep["end_count"]) == (0, 3, 1, 2)
     assert (octo["start_count"], octo["came"], octo["completed"], octo["end_count"]) == (2, 1, 1, 2)
     assert sep["end_count"] == octo["start_count"]
+
+
+def test_group_order():
+    from classify import group_order
+    names = ["Уч. год 26/27 - 1 кл ВС 10:00", "Уч. год 26/27 - 1 кл СБ 09:50", "Уч. год 26/27 - 1 кл (ШС) ЧТ 12:20",
+             "Уч. год 26/27 - 1 кл ПН 18:20", "Уч. год 26/27 - 1 кл СБ 12:20"]
+    got = sorted(names, key=lambda n: group_order(n, 1))
+    assert [n.split(" - ")[1] for n in got] == ["1 кл ПН 18:20", "1 кл (ШС) ЧТ 12:20", "1 кл СБ 09:50",
+                                                 "1 кл СБ 12:20", "1 кл ВС 10:00"]
+    assert group_order("Уч. год 26/27 - 7-1 (ВТ ПТ 15:00)", 7) == 721500
+    assert group_order("Уч. год 26/27 - 6 кл СР 18:15; СБ 17:15 (дистант)", 6) == 631815
+    assert group_order("Уч. год 26/27 - Заниматика (5-летки) ВС 09:50", 0) < group_order("Уч. год 26/27 - 1 кл ПН 18:20", 1)
+    assert group_order("Уч. год 26/27 - 11 кл ПН, ЧТ 15:00", 11) > group_order("Уч. год 26/27 - 9 кл СР, СБ 15:00", 9)

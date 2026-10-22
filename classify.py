@@ -168,3 +168,17 @@ def movement_rows(students, joins, class_meta, today: date):
                                  left_count=left, end_count=a["start_count"] + a["came"] - left))
         month = nxt
     return rows
+
+
+WEEKDAYS = ("ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС")
+
+
+def group_order(class_name: str, grade: int | None) -> int:
+    """Порядок группы для сортировки: класс, затем первый день недели в названии (ПН..ВС),
+    затем время. «Уч. год 26/27 - 5 кл ВТ, ПТ 15:00» -> 5_2_1500 = 521500."""
+    s = re.sub(r"Уч\.?\s*год\s*\d\d/\d\d\s*-?\s*", "", class_name or "", flags=re.I).upper()
+    days = [(m.start(), i + 1) for i, d in enumerate(WEEKDAYS) for m in re.finditer(rf"\b{d}\b", s)]
+    day = min(days)[1] if days else 9
+    t = re.search(r"(\d{1,2})[:.](\d{2})", s)
+    hhmm = int(t.group(1)) * 100 + int(t.group(2)) if t else 0
+    return (grade if grade is not None else 99) * 100000 + day * 10000 + hhmm

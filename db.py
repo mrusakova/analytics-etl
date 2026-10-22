@@ -99,7 +99,7 @@ def _dir(c):
 
 
 def _grade(d, g):   # подпись класса; для сортировки в DataLens есть числовой grade
-    return (f"CASE WHEN {d} = 'preschool' THEN 'Дошкольники' WHEN {g} IS NULL THEN '?' "
+    return (f"CASE WHEN {g} IS NULL THEN '?' "
             f"ELSE CAST({g} AS VARCHAR) || ' кл' END")
 
 

@@ -24,10 +24,11 @@ def parse_grade(name: str, course_name: str | None = None) -> int | None:
 
 def direction_of(class_name: str, course_id: int, course_name: str) -> tuple[str, int | None] | None:
     """-> (направление, класс) или None, если группа не из наших программ.
-    Направления: olymp (Олимпиадная математика, вкл. «ШС»), school_plus, preschool."""
+    Направления: olymp (Олимпиадная математика, вкл. «ШС» и дошкольников «Заниматика» как 0 класс),
+    school_plus."""
     if course_id == PRESCHOOL_COURSE_ID or "дошкол" in (course_name or "").lower() \
             or "заниматика" in (class_name or "").lower():
-        return "preschool", 0
+        return "olymp", 0   # дошкольники = Олимпиадная математика, 0 класс
     if "Кружки" not in (course_name or ""):
         return None
     if "школа+" in (class_name or "").lower():

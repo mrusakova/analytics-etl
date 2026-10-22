@@ -49,7 +49,7 @@ SECTIONS = [
      "FROM dim_class c ORDER BY c.direction, c.grade, c.class_name"),
     # --- качество данных: всё, что ниже, в норме должно быть пустым или маленьким ---
     ("ПРОВЕРКА: группы без определённого класса (кроме дошкольников)",
-     "SELECT class_name, direction FROM dim_class WHERE grade IS NULL AND direction <> 'preschool'"),
+     "SELECT class_name, direction FROM dim_class WHERE grade IS NULL"),
     ("ПРОВЕРКА: занятия со статусом «проведено», но без единой отметки (выручка по ним = 0)",
      "SELECT lesson_date, class_name, records FROM fact_lesson WHERE conducted AND NOT marked "
      "ORDER BY lesson_date"),

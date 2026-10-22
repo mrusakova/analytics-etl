@@ -11,7 +11,7 @@ def test_grade(name, grade):
     assert parse_grade(name) == grade
 
 def test_directions():
-    assert direction_of("Уч. год 26/27 - Заниматика (5-летки) СБ 09:50", 115556, "Кружки для дошкольников") == ("preschool", 0)
+    assert direction_of("Уч. год 26/27 - Заниматика (5-летки) СБ 09:50", 115556, "Кружки для дошкольников") == ("olymp", 0)
     assert direction_of("Уч. год 26/27 - Школа+: углубленная математика (2 класс) ВС 10:00", 112069, "Кружки 2 класса") == ("school_plus", 2)
     assert direction_of("Уч. год 26/27 - 1 кл (ШС) ЧТ 12:20", 112047, "Кружки 1 класса") == ("olymp", 1)
     assert direction_of("Уч. год 26/27 - 5 кл ПН", 115554, "Кружки 5 класса") == ("olymp", 5)

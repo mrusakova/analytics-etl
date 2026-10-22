@@ -4,3 +4,5 @@ __pycache__/
 .pytest_cache/
 *копия*
 analytics_local.db
+etl.log
+etl.log.tmp

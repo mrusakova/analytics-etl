@@ -33,23 +33,26 @@
 1. **Yandex Cloud** (уже сделано): кластер Managed PostgreSQL `analytics` (хост `rc1d-ce0n1hjnn83lr2qv.mdb.yandexcloud.net`, порт 6432,
    БД и пользователь `analytics`, публичный доступ, доступ DataLens включён). Пароль пользователя задаёт владелец вручную: консоль -> кластер -> Пользователи -> ⋯ -> «Изменить пароль» -> «Ввести вручную»
    (пароль, сгенерированный при создании, лежит в Lockbox и в консоли не виден). Его нужно вписать в `PGPASSWORD` в `.env`.
-2. **Сервер (там же, где бот)**:
+2. **Сервер (там же, где бот)**, папка `/root/analytics-etl` — клон этого репозитория (deploy key, ssh-алиас `github-analytics`):
    ```bash
-   scp -r analytics-etl deploy@<IP>:/home/deploy/
-   cd analytics-etl && cp .env.example .env && nano .env     # ключ Мой Класс, строка подключения к БД
-   docker compose run --rm etl python etl.py --snapshot      # первый прогон + первый снимок
+   git clone github-analytics:mrusakova/analytics-etl.git /root/analytics-etl
+   cd /root/analytics-etl && cp .env.example .env && nano .env   # ключ Мой Класс, пароль БД
+   docker compose run --rm --build etl python etl.py --snapshot  # первый прогон + первый снимок
+   docker compose run --rm etl python report.py                  # сводка для сверки
    ```
-   Ежедневный запуск (`crontab -e`):
+   Обновление кода: `git pull && docker compose build` (код запекается в образ, без build изменения не применятся).
+
+   Ежедневный запуск — `run_daily.sh` из cron (лог `etl.log` в папке, защита от наложения прогонов):
    ```
-   0 6 * * * cd /home/deploy/analytics-etl && docker compose run --rm etl >> etl.log 2>&1
+   0 3 * * * sh /root/analytics-etl/run_daily.sh
    ```
+   Время cron — по часам сервера (UTC): 03:00 UTC = 06:00 по Казани. Снимки долгов и групп делаются по понедельникам (дата по МСК).
 3. **DataLens**: подключение «PostgreSQL» -> наборы данных по витринам -> чарты и дашборд.
    Фильтры: направление, класс, группа, период (по `lesson_date`, `refusal_month`, `snapshot_date`).
    Доступ коллегам — через роли на дашборд (чтение), без доступа к подключению.
 
 ## Тесты
-`pip install -r requirements.txt pytest && pytest` — 29 проверок правил и сквозной прогон на тестовых данных.
+`pip install -r requirements.txt pytest && pytest` — 33 проверки правил и сквозной прогон на тестовых данных.
 
 ## Что дальше
-- Первый прогон на реальных данных и **сверка** с отчётами «Моего Класса» (число отказов, выручка за месяц, долг).
 - Выручка/долги до начала учёта снимков: вычислить задним числом по датам платежей.

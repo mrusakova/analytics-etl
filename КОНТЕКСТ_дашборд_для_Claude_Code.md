@@ -22,7 +22,8 @@
 
 ## 3. Что известно про API «Мой Класс» (https://api.moyklass.com/v1)
 - Токен: POST /company/auth/getToken {apiKey} -> accessToken, заголовок `x-access-token`; бывают 401 (перевыдать токен) и 429 (ждать Retry-After). Клиент уже есть в боте (`moyklass_client.py`) и в `analytics-etl/mk_client.py`.
-- Списки постранично (`limit`, `offset`; ответ `data.<ключ>` и `data.stats.totalItems`). В `joins` фильтр `classId` принимает только одно число (не массив). Даты-диапазоны: `date=YYYY-MM-DD,YYYY-MM-DD`.
+- Списки постранично (`limit`, `offset`; ответ — объект `{<ключ>: [...], stats: {totalItems}}` без обёртки `data`). `/company/courses` и `/company/classes` отдают ГОЛЫЙ массив целиком, limit/offset игнорируют (классов 337, из них 26/27 — 59). `/company/users/{id}` — карточка без обёртки. В `joins` фильтр `classId` принимает только одно число (не массив). У `/company/lessons` диапазон дат из 2 значений на практике не проходит валидацию — грузим `sort=date&sortDirection=asc` и режем по дате сами. У `/company/invoices` НЕТ фильтра `classId` (всего счетов ~18 тыс.) — грузим все один раз; счёт привязан к группе через абонемент или `joinId` (оплата единой суммой).
+- Первый прогон 22.10.2026 упал на `/company/courses` (ждали `data`) — исправлено, добавлен `tests/test_extract.py` с реальным форматом ответов.
 - `/company/joins`: statusId, stateChangedAt, statusChangeReasonId, createdAt, `stats` {visits, freeVisits, lastVisit, lessonsLost, totalPayed, nonPayedLessons}.
 - Статусы записи: 1 Отказался, 2 Учится, 4 Завершил/зап. в др. группу, 5 Отработка, 73394 Записан, 82325 Не ходит?, 84076 Зачислен. Причина отказа 445983 стоит у многих записей, но её нет в справочнике statusReasons (скрыта/удалена).
 - `/company/lessons?includeRecords=true`: status (1 = проведено), records[] {visit, goodReason, free, test, skip, paid, yield, bill{summa,date,userSubscriptionId}}.

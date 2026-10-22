@@ -20,8 +20,10 @@ def _d(s):
 
 
 def extract(mk: MoyKlass, today: date):
-    courses = {c["id"]: c["name"] for c in mk.get("/company/courses")["data"]}
-    classes = [c for c in mk.paged("/company/classes") if C.SEASON_MARKER in (c.get("name") or "")]
+    # /company/courses и /company/classes отдают ГОЛЫЙ массив целиком (limit/offset не
+    # учитываются — проверено вживую), остальные списки — объект с ключом (joins, lessons...).
+    courses = {c["id"]: c["name"] for c in mk.get("/company/courses")}
+    classes = [c for c in mk.get("/company/classes") if C.SEASON_MARKER in (c.get("name") or "")]
     meta, dim = {}, []
     for c in classes:
         res = direction_of(c["name"], c["courseId"], courses.get(c["courseId"], ""))
@@ -31,15 +33,19 @@ def extract(mk: MoyKlass, today: date):
         meta[c["id"]] = dict(direction=direction, grade=grade, name=c["name"])
         dim.append(dict(class_id=c["id"], class_name=c["name"], status=c["status"], direction=direction,
                         grade=grade, course_name=courses.get(c["courseId"])))
-    joins, lessons, invoices, subs = [], [], {}, []
+    joins, lessons, subs = [], [], []
     for cid in meta:
         joins += mk.paged("/company/joins", "joins", classId=cid)
-        lessons += mk.paged("/company/lessons", "lessons", limit=100, classId=cid,
-                            includeRecords="true", date=f"{C.SEASON_START},{today.isoformat()}")
-        for inv in mk.paged("/company/invoices", "invoices", classId=cid):
-            invoices[inv["id"]] = inv
+        # Диапазон дат (2 значения) у /company/lessons на практике не проходит валидацию
+        # (см. бота, student_card.py) — берём все занятия группы по дате и режем сами.
+        lessons += [L for L in mk.paged("/company/lessons", "lessons", limit=100, classId=cid,
+                                        includeRecords="true", sort="date", sortDirection="asc")
+                    if C.SEASON_START <= (L.get("date") or "") <= today.isoformat()]
         subs += mk.paged("/company/userSubscriptions", "subscriptions", classId=cid)
-    return dim, meta, joins, lessons, list(invoices.values()), subs
+    # У /company/invoices нет фильтра по группе — берём все счета один раз (~18 тыс.),
+    # к группам они привязываются в transform через абонемент или запись (joinId).
+    invoices = mk.paged("/company/invoices", "invoices")
+    return dim, meta, joins, lessons, invoices, subs
 
 
 def transform(meta, joins, lessons, invoices, subs, today: date):
@@ -82,9 +88,10 @@ def transform(meta, joins, lessons, invoices, subs, today: date):
                        created_at=_d(j["createdAt"]), state_changed_at=_d(j["stateChangedAt"]),
                        reason_id=j.get("statusChangeReasonId")))
     sub_class = {s["id"]: s.get("mainClassId") for s in subs}
+    join_class = {j["id"]: j["classId"] for j in joins}   # счета с оплатой «единой суммой»
     debts = []
     for inv in invoices:
-        cid = sub_class.get(inv.get("userSubscriptionId"))
+        cid = sub_class.get(inv.get("userSubscriptionId")) or join_class.get(inv.get("joinId"))
         m = meta.get(cid)
         debt = (inv["price"] or 0) - (inv["payed"] or 0)
         if m and debt > 0:
@@ -109,7 +116,7 @@ def load_names(mk, conn, user_ids) -> int:
     new = []
     for uid in sorted(set(user_ids) - have):
         try:
-            name = (mk.get(f"/company/users/{uid}").get("data") or {}).get("name")
+            name = mk.get(f"/company/users/{uid}").get("name")   # карточка без обёртки
         except Exception:
             continue   # не получилось — попробуем в следующий прогон
         if name:

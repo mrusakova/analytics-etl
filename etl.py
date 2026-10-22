@@ -3,7 +3,7 @@
          python etl.py --snapshot (принудительно сделать снимок долгов/групп сегодня)"""
 import sys
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 import config as C
@@ -142,7 +142,7 @@ def main(force_snapshot=False):
         if today.weekday() == 0 or force_snapshot:   # понедельник
             db.replace_snapshot(conn, db.debt_snapshot, today, debts)
             db.replace_snapshot(conn, db.group_snapshot, today, gs)
-        conn.execute(db.etl_run.insert(), [dict(finished_at=datetime.utcnow(),
+        conn.execute(db.etl_run.insert(), [dict(finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                      note=f"groups={len(dim)} joins={len(joins)} lessons={len(lessons)}")])
     ids = {s["user_id"] for s in students} | {d["user_id"] for d in debts}
     with eng.begin() as conn:

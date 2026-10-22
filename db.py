@@ -14,6 +14,9 @@ dim_class = Table("dim_class", md,
 dim_group_order = Table("dim_group_order", md,   # порядок групп: класс -> день недели -> время
     Column("class_id", I, primary_key=True), Column("group_order", Integer))
 
+fact_lesson_staff = Table("fact_lesson_staff", md,   # сколько преподавателей вело занятие
+    Column("lesson_id", I, primary_key=True), Column("teachers", Integer))
+
 fact_lesson = Table("fact_lesson", md,   # одна строка = проведённое/запланированное занятие группы
     Column("lesson_id", I, primary_key=True), Column("lesson_date", Date), Column("class_id", I),
     Column("class_name", String), Column("direction", String), Column("grade", Integer),
@@ -112,7 +115,8 @@ VIEWS.update({
     "v_dl_lessons":   # занятия: выручка, посещения, пропуски по дате
         f"SELECT l.lesson_date, l.class_id, l.class_name, {_dir('l.direction')} AS direction_name, "
         f"l.grade, {_grade('l.direction', 'l.grade')} AS grade_label, l.conducted, l.records, l.visits, "
-        f"l.absences, l.absences_good_reason, l.revenue, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = l.class_id) AS group_order FROM fact_lesson l",
+        f"l.absences, l.absences_good_reason, l.revenue, "
+        f"(SELECT t.teachers FROM fact_lesson_staff t WHERE t.lesson_id = l.lesson_id) AS teachers, (SELECT o.group_order FROM dim_group_order o WHERE o.class_id = l.class_id) AS group_order FROM fact_lesson l",
     "v_dl_students":  # ученик x направление: статус, отказы
         f"SELECT s.user_id, {_dir('s.direction')} AS direction_name, s.grade, "
         f"{_grade('s.direction', 's.grade')} AS grade_label, "

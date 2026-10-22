@@ -138,6 +138,8 @@ def main(force_snapshot=False):
         db.replace_all(conn, db.dim_group_order, [dict(class_id=d["class_id"],
                        group_order=group_order(d["class_name"], d["grade"])) for d in dim])
         db.replace_all(conn, db.fact_lesson, fact)
+        db.replace_all(conn, db.fact_lesson_staff, [dict(lesson_id=L["id"], teachers=len(L.get("teacherIds") or []))
+                                                    for L in lessons if L["classId"] in meta])
         db.replace_all(conn, db.mart_join, mj)
         db.replace_all(conn, db.mart_student_program, students)
         db.replace_all(conn, db.mart_churn_risk, risk)

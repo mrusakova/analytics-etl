@@ -71,13 +71,15 @@ def build_student_programs(joins, class_meta, visit_dates):
         dates = sorted(visit_dates.get((uid, direction), []))
         visits = len(dates)
         statuses = {j["statusId"] for j in js}
-        refused_js = [j for j in js if j["statusId"] == C.ST_REFUSED]
+        # «Отказался» и «Завершил / зап. в др. группу» без активной записи в направлении — отказ
+        # (решение владельца 22.10.2026; переход между группами внутри направления — не отказ).
+        refused_js = [j for j in js if j["statusId"] in (C.ST_REFUSED, C.ST_DONE_OR_MOVED)]
         if statuses & C.ACTIVE_STATUSES:
             status = "active"
         elif refused_js:
             status = "refused"
         else:
-            status = "completed"   # завершил / перешёл — это не отказ
+            status = "completed"   # прочие неактивные статусы (на практике не встречаются)
         r_type = r_date = reason = None
         if status == "refused":
             r_type = refusal_type(direction, grade, visits)

@@ -43,8 +43,8 @@ def test_refusal_by_program_and_date_of_last_visit():
 def test_moved_between_groups_is_not_refusal():
     rows = build_student_programs([J(1, 10, 1, 4), J(2, 10, 2, 2)], META, {})
     assert rows[0]["status"] == "active" and rows[0]["refusal_type"] is None
-    rows = build_student_programs([J(1, 11, 1, 4)], META, {})
-    assert rows[0]["status"] == "completed"
+    rows = build_student_programs([J(1, 11, 1, 4)], META, {})   # «Завершил/перешёл» без активной = отказ
+    assert (rows[0]["status"], rows[0]["refusal_type"]) == ("refused", "no_show")
 
 def test_no_show_date_falls_back_to_status_change():
     r = build_student_programs([J(1, 12, 1, 1, changed="2026-10-08T09:39:59+00:00")], META, {})[0]
@@ -96,7 +96,8 @@ def test_movement_by_month():
     rows = {r["month"]: r for r in movement_rows(students, joins, meta, date(2026, 10, 22))}
     sep, octo = rows[date(2026, 9, 1)], rows[date(2026, 10, 1)]
     assert (sep["start_count"], sep["came"], sep["after_trial"], sep["end_count"]) == (0, 3, 1, 2)
-    assert (octo["start_count"], octo["came"], octo["completed"], octo["end_count"]) == (2, 1, 1, 2)
+    # ученик 4 «завершил/перешёл» после 2 посещений = отказ после пробного в октябре
+    assert (octo["start_count"], octo["came"], octo["after_trial"], octo["completed"], octo["end_count"]) == (2, 1, 1, 0, 2)
     assert sep["end_count"] == octo["start_count"]
 
 
